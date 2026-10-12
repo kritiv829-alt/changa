@@ -1,18 +1,14 @@
-import http from 'node:http';
-import { readFile } from 'node:fs/promises';
-
-const allowed = new Map([
-  ['/', ['index.html', 'text/html']],
-  ['/styles.css', ['styles.css', 'text/css']],
-  ...['app.js', 'tasks.js', 'storage.js', 'dom.js'].map(file => [`/${file}`, [file, 'text/javascript']]),
-]);
-const port = Number(process.env.PORT || 3000);
-const server = http.createServer(async (request, response) => {
-  if (!['GET', 'HEAD'].includes(request.method)) {
+equest.method)) {
     response.writeHead(405, { Allow: 'GET, HEAD' }).end();
     return;
   }
-  const pathname = new URL(request.url, 'http://localhost').pathname;
+  let pathname;
+  try {
+    pathname = new URL(request.url, 'http://localhost').pathname;
+  } catch {
+    response.writeHead(400).end('Invalid request URL');
+    return;
+  }
   const asset = allowed.get(pathname);
   if (!asset) { response.writeHead(404).end('Not found'); return; }
   try {
@@ -24,4 +20,4 @@ const server = http.createServer(async (request, response) => {
   }
 });
 server.on('error', error => { console.error(`Could not start server: ${error.message}`); process.exitCode = 1; });
-server.listen(port, '127.0.0.1', () => console.log(`Everyday is running at http://localhost:${port}`));
+server.listen(port, '127.0.0.1', () => console.log(`Everyday is running at http://localhost:${server.address().port}`));

@@ -1,2 +1,0 @@
-Hello from the project folder!
-This is a sample text file.

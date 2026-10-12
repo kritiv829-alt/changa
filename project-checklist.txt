@@ -1,4 +1,0 @@
-Project checklist
-
-- Review the project files.
-- Record ideas for future improvements.

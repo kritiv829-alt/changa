@@ -2,31 +2,32 @@
 
 ## Architecture
 
-Everyday is a dependency-free browser to-do app using native ES modules, served by a small Node.js HTTP server. `app.js` owns UI state and event wiring; `tasks.js` contains pure task operations, `storage.js` handles browser persistence, and `dom.js` renders task elements. The server exposes an explicit allowlist of HTML, CSS, and application module files.
+Everyday is a dependency-free browser to-do app built with HTML, CSS, and JavaScript ES modules. `app.js` coordinates UI state and events, while `tasks.js` contains pure task operations, `storage.js` handles localStorage persistence and validation, and `dom.js` renders task rows. `server.js` is a small Node.js static server; tests use Node’s built-in test runner and cover server behavior and storage handling.
 
 ## Conventions
 
-- Use JavaScript modules and two-space indentation; `package.json` sets `"type": "module"` and `CONTRIBUTING.md` requires two spaces.
-- Keep responsibilities separated: task mutations belong in `tasks.js`, persistence in `storage.js`, rendering in `dom.js`, and orchestration/UI state in `app.js`.
-- Task operations are immutable and return new arrays/objects: `tasks.js` uses spread in `addTask` and `toggleTask`, and `filter` in `deleteTask`/`filterTasks`.
-- Normalize and validate task input in `tasks.js`: `addTask` trims input, limits titles to 200 characters, and rejects empty titles. `app.js` also prevents whitespace-only form submission and restores focus.
-- Render user-controlled task text with `textContent`, not HTML interpolation. This is used for titles and empty-state text in `dom.js` and `app.js`; delete labels are also generated through DOM APIs.
-- Preserve accessibility behavior: every checkbox has an associated label (`dom.js`), delete controls have descriptive `aria-label`s, filters update `aria-pressed`, and controls are keyboard-focusable.
-- Use event delegation for the dynamic task list. `app.js` listens on `list` for checkbox changes and delete-button clicks rather than attaching handlers per rendered row.
-- Update state through `update()` in `app.js`, which persists via `saveTasks`, displays storage failure warnings, and re-renders.
-- The project intentionally has no dependencies or install step. Run with Node.js 22+ and `npm start`; `npm run build` syntax-checks every root-level `.js` file, including utility/placeholder files.
-- New browser-served modules must be added to `server.js`’s `allowed` map; arbitrary filesystem paths are not served.
+- Keep the project dependency-free and use native ES modules (`package.json`, `app.js`).
+- Use two-space indentation and Node.js 22+ (`CONTRIBUTING.md`, `package.json`).
+- Keep responsibilities separated: task transformations belong in `tasks.js`, persistence in `storage.js`, and DOM rendering in `dom.js` (`CONTRIBUTING.md`).
+- Task operations are immutable: `addTask`, `toggleTask`, and `deleteTask` return new arrays/objects rather than mutating input (`tasks.js`).
+- Task titles are trimmed and capped at 200 characters when created; task IDs use `crypto.randomUUID()` (`tasks.js`).
+- Treat localStorage as untrusted input. `loadTasks()` validates object shape, IDs, duplicate IDs, title length/content, and completion type, recovering valid entries while reporting an error (`storage.js`).
+- Invalid saved data is not rewritten during loading; this behavior is explicitly tested (`test/storage.test.js`).
+- Render user-controlled task text with `textContent`, including labels and warning/summary content; do not introduce `innerHTML` for task data (`dom.js`, `app.js`, `CONTRIBUTING.md`).
+- Preserve keyboard/accessibility behavior: labels are associated with checkbox IDs, delete buttons have task-specific `aria-label`s, filters use `aria-pressed`, and focus is restored after mutations (`dom.js`, `app.js`).
+- Run `npm test` for automated tests and `npm run build` for syntax checks; the build checks every root-level `.js` file (`README.md`, `package.json`).
 
 ## Intentional non-standard choices
 
-- `server.js` binds only to `127.0.0.1` and uses a fixed allowlist rather than a general static-file server; this is deliberate for the local development server.
-- `app.js` keeps the current filter in UI state and resets it to `all` after adding a task, while toggle/delete operations preserve the selected filter.
-- `broken-counter.js`, `broken-greeting.js`, `fortune-cookie.js`, and `rough-*` files are standalone examples/placeholders. They are still syntax-checked by the build script but are not part of the browser application.
+- The app intentionally remains usable when storage is unavailable or corrupted. Load/save failures return status values and cause a visible warning rather than throwing (`storage.js`, `app.js`).
+- The server intentionally serves only an explicit asset allowlist, binds to `127.0.0.1`, disables caching, and supports only `GET`/`HEAD` (`server.js`, `test/server.test.js`).
+- Loading malformed storage recovers valid tasks without replacing the original stored value (`storage.js`, `test/storage.test.js`).
 
 ## Watch out for
 
-- Do not introduce `innerHTML` or unsafe HTML interpolation for task/user text; preserve the `textContent`/DOM-construction approach.
-- Do not mutate the existing task array or task objects in place; persistence and rendering assume operations return updated values.
-- Keep storage failures non-fatal: `app.js` must continue rendering and show a warning when loading or saving fails.
-- When adding or renaming client modules, update the `server.js` allowlist or the browser will receive a 404.
-- Preserve the 200-character limit, UUID IDs, filter semantics (`all`, `active`, `completed`), and focus restoration after task actions.
+- Flag any rendering of task titles or storage-derived text through `innerHTML`; it would violate the project’s XSS-safe rendering convention (`dom.js`, `CONTRIBUTING.md`).
+- Flag direct mutation of the `tasks` array or task objects, bypassing the pure operations in `tasks.js`.
+- Flag persistence changes that stop catching localStorage access/quota errors or overwrite malformed data during `loadTasks()`.
+- Flag task creation that permits blank titles, exceeds 200 characters, or generates non-unique/missing IDs.
+- Flag UI changes that omit focus restoration, checkbox-label association, filter `aria-pressed` state, or accessible delete labels.
+- Flag server changes that expose arbitrary filesystem paths, accept unsupported methods, bind beyond localhost without an explicit requirement, or break malformed-URL handling.
